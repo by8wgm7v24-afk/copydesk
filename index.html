@@ -88,6 +88,9 @@ ul.rules{margin:0;padding-left:18px}ul.rules li{margin:5px 0}
 <h2>Copy traders</h2>
 <div class="card" id="traders"></div>
 
+<h2>Agents <small id="agentsat"></small></h2>
+<div class="card" id="agents"><div class="empty">No agent run yet</div></div>
+
 <h2>Rules</h2>
 <div class="card">
   <ul class="rules">
@@ -104,7 +107,7 @@ ul.rules{margin:0;padding-left:18px}ul.rules li{margin:5px 0}
 <script>
 const FEED_URL = "https://j.jstash.app/rxQuwIzKKBfZRf2FTuVpow";
 const TZ = "Europe/Riga";
-const DEFAULT_TRADERS = ["unipcs","jusatrades","0xsneakky","Rowdy"];
+const DEFAULT_TRADERS = ["unipcs","jusatrades","0xsneakky","Rowdy","koy","motiyawereyy"];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const num = v => (typeof v === "number" && isFinite(v)) ? v : (v != null && v !== "" && isFinite(+v) ? +v : null);
@@ -210,7 +213,21 @@ async function load(){
     $("err").style.display = "block";
   } finally { loading = false; $("refresh").textContent = "↻ Refresh"; }
 }
-function render(d){ renderTraders(d); renderHeader(d); renderOpen(d.open_positions || []); renderTrades(d); }
+function renderAgents(d){
+  const a = d.agents;
+  if (!a || !Array.isArray(a.list) || !a.list.length){ $("agentsat").textContent = ""; return; }
+  $("agentsat").textContent = rigaTime(a.finished_at) + " Riga";
+  const labels = {finder:"Finder",auditor:"Auditor",judge:"Judge",sizer:"Sizer",exits:"Exits"};
+  let h = a.list.map(x => '<div class="tr"><div class="side ' + (x.ok ? "up" : "dn") + '">' + (x.ok ? "OK" : "ERR") + '</div><div class="mid"><div><b>' +
+    esc(labels[x.name] || x.name) + '</b></div><div class="why">' + esc(x.summary) + '</div></div></div>').join("");
+  const sig = (a.signals || []).map(x => esc(x.symbol) + (x.mode === "copy" ? " (copy · " + esc(x.trader) + ")" : "") + (x.usd ? " " + usd(x.usd) : "")).join(", ");
+  const ex = (a.exits || []).filter(x => x.action && x.action !== "HOLD").map(x => esc(x.symbol) + " " + esc(x.action)).join(", ");
+  h += '<div class="when" style="margin-top:6px">Buy signals: ' + (sig || "none") + ' · Exit signals: ' + (ex || "none") + '</div>';
+  if (a.lock) h += '<div class="when stale">' + esc(a.lock) + '</div>';
+  h += '<div class="when">Signals are analysis; the desk still decides and places trades on Fomo.</div>';
+  $("agents").innerHTML = h;
+}
+function render(d){ renderAgents(d); renderTraders(d); renderHeader(d); renderOpen(d.open_positions || []); renderTrades(d); }
 
 $("refresh").addEventListener("click", load);
 setInterval(load, 60000);
